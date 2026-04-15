@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="定时锁应用 - 时间限制访问控制">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="x5-fullscreen" content="true">
+    <meta name="x5-page-mode" content="app">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="msapplication-tap-highlight" content="no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="apple-mobile-web-app-title" content="定时锁">
+    <title>定时锁</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #1a1a2e;
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 24px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        #password-page {
+            display: none;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .time-info {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 24px;
+            backdrop-filter: blur(10px);
+        }
+
+        .time-info h2 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: #00d4ff;
+        }
+
+        .time-info p {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .countdown {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 32px;
+            backdrop-filter: blur(10px);
+        }
+
+        .countdown p {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 8px;
+        }
+
+        .countdown-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+
+        .password-form {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .password-form h3 {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        .password-input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 14px;
+            color: #fff;
+            font-size: 20px;
+            text-align: center;
+            letter-spacing: 8px;
+            margin-bottom: 12px;
+        }
+
+        .password-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .error-message {
+            color: #ff4757;
+            font-size: 14px;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        .unlock-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #00d4ff, #00b8d4);
+            border: none;
+            border-radius: 12px;
+            padding: 14px;
+            color: #1a1a2e;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .unlock-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 212, 255, 0.3);
+        }
+
+        #main-page {
+            display: none;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+            padding: 20px;
+            position: relative;
+        }
+
+        #main-page::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 20% 80%, rgba(0, 212, 255, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 20%, rgba(138, 43, 226, 0.1) 0%, transparent 50%);
+            z-index: 0;
+        }
+
+        .content-container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header-card {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 24px;
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 24px;
+            backdrop-filter: blur(10px);
+        }
+
+        .header-card h2 {
+            font-size: 18px;
+            color: #00d4ff;
+            margin-top: 16px;
+        }
+
+        .content-card {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 24px;
+            backdrop-filter: blur(10px);
+        }
+
+        .content-text {
+            font-size: 16px;
+            line-height: 1.8;
+            color: rgba(255, 255, 255, 0.9);
+            white-space: pre-wrap;
+        }
+
+        .music-controls {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            backdrop-filter: blur(10px);
+        }
+
+        .music-btn {
+            background: none;
+            border: none;
+            color: #00d4ff;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .music-info {
+            color: #00d4ff;
+            font-size: 14px;
+            flex: 1;
+            text-align: center;
+        }
+
+        #petals-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        #lights-canvas, #lights-canvas-pwd {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        #petals-canvas, #petals-canvas-pwd {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        #bubbles-canvas, #hearts-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+            display: none;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- 加载页面 -->
+    <div id="splash-screen">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">正在检查访问权限...</div>
+    </div>
+
+    <!-- 密码页面 -->
+    <div id="password-page">
+        <canvas id="lights-canvas-pwd"></canvas>
+        <canvas id="petals-canvas-pwd"></canvas>
+        
+        <div class="container">
+            <div class="time-info">
+                <h2>未到开放时间</h2>
+                <p>2026年8月19日 13:14</p>
+            </div>
+            
+            <div class="countdown">
+                <p>距离解锁还有</p>
+                <div class="countdown-value" id="countdown">计算中...</div>
+            </div>
+            
+            <div class="password-form">
+                <h3>输入密码提前解锁</h3>
+                <input type="password" class="password-input" id="password" placeholder="请输入密码" maxlength="10">
+                <div class="error-message" id="error-message"></div>
+                <button class="unlock-btn" id="unlock-btn">解锁</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主页面 -->
+    <div id="main-page">
+        <canvas id="lights-canvas"></canvas>
+        <canvas id="petals-canvas"></canvas>
+        <canvas id="bubbles-canvas"></canvas>
+        <canvas id="hearts-canvas"></canvas>
+        
+        <div class="content-container">
+            <div class="header-card">
+                <div style="font-size: 60px; margin-bottom: 16px;">💖</div>
+                <h2 id="page-title">2026.08.19 13:14</h2>
+            </div>
+            
+            <div class="content-card">
+                <div class="content-text" id="content-text">加载中...</div>
+            </div>
+            
+            <div class="music-controls">
+                <button class="music-btn" id="play-btn">▶</button>
+                <div class="music-info" id="music-info">Flower Dance</div>
+                <button class="music-btn" id="mute-btn">🔊</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 配置
+        const CONFIG = {
+            unlockTime: new Date(2026, 7, 19, 13, 14, 0), // 8月19日 13:14
+            correctPassword: '3111065757',
+            testPassword: '331099',
+            musicUrlA: 'https://sharefs.kugou.com/202604150329/b9c4624e012ae67ad1de8a5afcf34743/v3/00b4e116c3ab042541fc7823d79798d0/yp/full/ap1000_us0_pi409_s3702783488.mp3', // Merry Christmas Mr. Lawrence - 酷狗
+            musicUrlB: 'https://sharefs.kugou.com/202604150328/7fe3552ecf935aff6d6004701f1d5d32/v3/183be5b3dbd286ffd07effbb61d8d471/yp/full/ap1000_us0_pi409_s185008505.mp3', // Flower Dance - 酷狗
+            contentA: `亲爱的：
+
+现在是2026年4月15日凌晨两点。邯郸在下雨，我一个人坐在办公室里，给你写这封信。
+
+2026年4月12日晚，你在抖音问：男生有对象还会关注别的女生吗？我说不会，正常男性不会背叛喜欢的人。你说前男友出轨了。我回：那就是不喜欢加人品差。你最大的问题就是把他当回事。出轨该浸猪笼，没祝他不举都算仁义。然后我说：要不你把生辰给我练练手？你给了。我排盘后发现——我是极致的金寒水冷，你是极致的火炎土燥，只要引木通关就是五气朝元。那一刻我心里有个声音：这个人不一样。
+
+第二天刷牙时我满脑子都是你。想表白又怕吓到你，不说又怕错过。4月13日我起了十二卦，一卦比一卦差，近乎绝望。我不信，查了一整夜命理资料，最后承认：我太急了。我甚至买过去济南找你的票，半小时后又退了——突然去找你只会让你压力更大。退完票我在办公室苦笑出来：人家还没准备好，我这是在追债吗？
+
+你每天都会理我，没有删那条评论，也没有拉黑。我知道你只是不想伤害我，不代表准备好了。我不该把你的客气当机会。
+
+我想告诉你：世界上有很多"不合逻辑"的爱情。有人插队瞪一眼就定了终身，有人网恋第一次视频就确定关系。喜欢一个人是忍不住的。我愿意赌一次。
+
+现在夸夸你。你经历背叛后没有大吵大闹，而是理性地问"是不是所有男生都这样"。你有自尊，有分寸感，不拉黑不说难听话——那不是软弱，是教养。你内心干净。你没有急着找替代品疗伤，你是礁石。你的善良有边界，对自己诚实，不装坚强也不卖惨。你不在意别人看法，你活自己的。你像一杯温度刚好的茶，入口微苦，回甘很长。
+
+你的声音有一点沙哑，尾音微微上扬。你给我发过一条几秒的语音，我反复听了很多遍，收藏了。你的手背有些糙，不知道是怎么造成的——每次想到这我心里就疼，不是可怜，是心疼。我想替你分担。
+
+你有一种超越年龄的通透。你骂前男友恶心，你没有忍，没有装大度。你懂得把感情留给值得的人。你的灵魂里住着诗人和过日子的人，浪漫但不漂浮，现实但不世俗。你像一块被水冲刷的石头，表面圆润，内里坚硬。
+
+八字互补不是玄学，是两个人的能量场互相滋养。你的火炎土燥遇上我的金寒水冷，引木通关就是顶配。八十亿人里，偏偏是你看到我的评论，偏偏你愿意给我生辰，偏偏我懂命理——我不迷信，但我信缘分。
+
+我喜欢你，不是因为你可怜（你一点都不可怜），而是因为你是你。你拒绝我时温柔而坚决，没有吊着我。正是因为你拒绝了我，我才确定我喜欢的是你这个人，而不是恋爱的状态。
+
+我不发誓。发誓是因为对未来不自信。我给你几个承诺：第一，我会珍惜你，把你当成具体的人来爱。第二，我会关心你——你不想说话我就安静坐着，你想哭我就听着。第三，我会可靠：答应的事一定做到，你的秘密永远不会从我嘴里出去。第四，我不会试图治愈你，你只是经历过糟糕的关系，我会陪你等时间过去。第五，如果你最终没有选我，我不会纠缠，会退回到朋友的位置祝你幸福。
+
+这封信就是我的告白。我把我最真的心交给你。
+
+—— 一个认真喜欢你的人
+2026年4月15日，于邯郸`,
+            contentB: `我知道你可能永远不会需要这封信，但我还是写下来，给自己一个交代。
+
+我喜欢你。从4月12日那个晚上开始，你在抖音问那个问题，我答了，然后你把生辰给我。我排盘看到火炎土燥的那一刻，心里有个声音说：就是这个人了。后来我起了十二卦，一卦比一卦差，我不信，查了一整夜资料。我买过去找你的票，又退了，怕给你压力。你每天理我，没有删那条评论，我以为是希望，后来才明白那只是你的善良。
+
+你的声音有一点沙哑，手背有些糙。你说不在意别人看法。你骂前男友恶心的时候，我觉得你活得真痛快。我喜欢你这些地方，真的喜欢。
+
+但喜欢太累了。这几个月我每天都在等你的消息，每一个标点都反复读，每一句"还行"都当成恩赐。我起卦、查命理、写长信，试图证明我们之间有一种叫"缘分"的东西。可你一直没有走向我。你没有拒绝，也没有靠近。你只是站在那里，礼貌、温和、不动声色。我像在对着山谷喊话，听得见回声，却走不到你面前。
+
+我不想再等了。不是不喜欢了，是不想用喜欢绑架你，也不想用等待消耗自己。
+
+这封信就是告别。我不会纠缠你，也不会删掉你的联系方式。我会退回到陌生人的位置，祝你以后遇到的人，比我勇敢，也比我幸运。
+
+再见。`
+        };
+
+        // 全局变量
+        let audio = null;
+        let isPlaying = false;
+        let isMuted = false;
+        let currentMusicUrl = CONFIG.musicUrlB;
+        
+        // 处理用户交互，解决苹果设备音频播放限制
+        function handleUserInteraction() {
+            if (!audio) {
+                // 创建音频对象
+                audio = new Audio();
+                audio.loop = true;
+            }
+            
+            // 尝试播放静音音频以解锁音频上下文
+            if (!isPlaying) {
+                audio.volume = 0;
+                audio.src = CONFIG.musicUrlA;
+                audio.play().catch(e => {
+                    console.log('初始音频播放被阻止，需要用户交互');
+                });
+                
+                // 延迟恢复音量
+                setTimeout(() => {
+                    if (audio) {
+                        audio.volume = 1;
+                    }
+                }, 100);
+            }
+            
+            // 移除事件监听器，避免重复触发
+            document.removeEventListener('click', handleUserInteraction);
+            document.removeEventListener('touchstart', handleUserInteraction);
+        }
+        
+        // 添加用户交互事件监听器
+        document.addEventListener('click', handleUserInteraction);
+        document.addEventListener('touchstart', handleUserInteraction);
+        
+        // 微信JS-SDK配置（如果需要）
+        function initWeChat() {
+            // 检测是否在微信内
+            const isWeChat = /MicroMessenger/i.test(navigator.userAgent);
+            if (isWeChat) {
+                console.log('在微信内打开');
+                // 这里可以添加微信JS-SDK的配置代码
+                // 例如分享功能等
+            }
+        }
+        
+        // 初始化微信配置
+        initWeChat();
+
+        // 花瓣和光影
+        let petals = [];
+        let lights = [];
+        let petalsPwd = [];
+        let lightsPwd = [];
+        let petalsCanvas = null;
+        let lightsCanvas = null;
+        let petalsCanvasPwd = null;
+        let lightsCanvasPwd = null;
+        let ctxPetals = null;
+        let ctxLights = null;
+        let ctxPetalsPwd = null;
+        let ctxLightsPwd = null;
+
+        // 泡泡和爱心
+        let bubbles = [];
+        let hearts = [];
+        let bubblesCanvas = null;
+        let heartsCanvas = null;
+        let ctxBubbles = null;
+        let ctxHearts = null;
+
+        // 当前页面类型
+        let currentPageType = 'B';
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(checkAccess, 800);
+            initPetals();
+            initLights();
+            initPetalsPwd();
+            initLightsPwd();
+            initBubbles();
+            initHearts();
+            animate();
+        });
+
+        // 检查访问权限
+        function checkAccess() {
+            const now = new Date();
+            if (now >= CONFIG.unlockTime) {
+                showMainPage('B');
+            } else {
+                showPasswordPage();
+                updateCountdown();
+                setInterval(updateCountdown, 1000);
+            }
+        }
+
+        // 显示密码页面
+        function showPasswordPage() {
+            document.getElementById('splash-screen').style.display = 'none';
+            document.getElementById('password-page').style.display = 'block';
+            
+            // 绑定事件
+            document.getElementById('unlock-btn').addEventListener('click', verifyPassword);
+            document.getElementById('password').addEventListener('keyup', function(e) {
+                if (e.key === 'Enter') {
+                    verifyPassword();
+                }
+            });
+        }
+
+        // 验证密码
+        function verifyPassword() {
+            const password = document.getElementById('password').value;
+            const errorMessage = document.getElementById('error-message');
+            
+            if (password === CONFIG.correctPassword) {
+                errorMessage.textContent = '';
+                showMainPage('A');
+            } else if (password === CONFIG.testPassword) {
+                errorMessage.textContent = '';
+                showMainPage('B');
+            } else {
+                errorMessage.textContent = '密码错误，请重试';
+                document.getElementById('password').value = '';
+            }
+        }
+
+        // 显示主页面
+        function showMainPage(type) {
+            currentPageType = type;
+            document.getElementById('splash-screen').style.display = 'none';
+            document.getElementById('password-page').style.display = 'none';
+            document.getElementById('main-page').style.display = 'block';
+            
+            // 设置内容
+            if (type === 'A') {
+                document.querySelector('.header-card div').textContent = '💖';
+                document.getElementById('page-title').textContent = '密码解锁成功';
+                document.getElementById('content-text').textContent = CONFIG.contentA;
+                document.getElementById('music-info').textContent = 'Merry Christmas Mr. Lawrence';
+                currentMusicUrl = CONFIG.musicUrlA;
+                
+                // 显示泡泡和爱心，隐藏花瓣和光影
+                document.getElementById('bubbles-canvas').style.display = 'block';
+                document.getElementById('hearts-canvas').style.display = 'block';
+                document.getElementById('petals-canvas').style.display = 'none';
+                document.getElementById('lights-canvas').style.display = 'none';
+                
+                // 更改背景为暖色调
+                document.getElementById('main-page').style.background = 'linear-gradient(135deg, #fff0f5, #ffe4ec, #ffd6e0)';
+                
+                // 更改文字颜色为深色
+                document.getElementById('main-page').style.color = '#5a3d4a';
+                document.querySelectorAll('.content-card, .header-card, .music-controls').forEach(el => {
+                    el.style.background = 'rgba(255, 255, 255, 0.7)';
+                    el.style.borderColor = 'rgba(255, 182, 193, 0.5)';
+                });
+                document.querySelectorAll('.header-card h2, .music-info').forEach(el => {
+                    el.style.color = '#d46a7e';
+                });
+                document.querySelectorAll('.content-text').forEach(el => {
+                    el.style.color = 'rgba(90, 61, 74, 0.9)';
+                });
+                document.querySelectorAll('.music-btn').forEach(el => {
+                    el.style.color = '#d46a7e';
+                });
+            } else {
+                document.querySelector('.header-card div').textContent = '💔';
+                document.getElementById('page-title').textContent = '2026.08.19 13:14';
+                document.getElementById('content-text').textContent = CONFIG.contentB;
+                document.getElementById('music-info').textContent = 'Flower Dance';
+                currentMusicUrl = CONFIG.musicUrlB;
+                
+                // 显示花瓣和光影，隐藏泡泡和爱心
+                document.getElementById('bubbles-canvas').style.display = 'none';
+                document.getElementById('hearts-canvas').style.display = 'none';
+                document.getElementById('petals-canvas').style.display = 'block';
+                document.getElementById('lights-canvas').style.display = 'block';
+                
+                // 更改背景为冷色调
+                document.getElementById('main-page').style.background = 'linear-gradient(135deg, #1a1a2e, #16213e, #0f3460)';
+                
+                // 更改文字颜色为浅色
+                document.getElementById('main-page').style.color = '#fff';
+                document.querySelectorAll('.content-card, .header-card, .music-controls').forEach(el => {
+                    el.style.background = 'rgba(255, 255, 255, 0.1)';
+                    el.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                });
+                document.querySelectorAll('.header-card h2, .music-info').forEach(el => {
+                    el.style.color = '#00d4ff';
+                });
+                document.querySelectorAll('.content-text').forEach(el => {
+                    el.style.color = 'rgba(255, 255, 255, 0.9)';
+                });
+                document.querySelectorAll('.music-btn').forEach(el => {
+                    el.style.color = '#00d4ff';
+                });
+            }
+            
+            // 自动播放音乐
+            if (!audio) {
+                audio = new Audio(currentMusicUrl);
+                audio.loop = true;
+            } else {
+                audio.src = currentMusicUrl;
+            }
+            
+            audio.play().catch(e => {
+                console.log('自动播放被阻止，需要用户交互');
+            });
+            isPlaying = true;
+            document.getElementById('play-btn').textContent = '⏸';
+            
+            // 绑定音乐控制
+            document.getElementById('play-btn').addEventListener('click', togglePlay);
+            document.getElementById('mute-btn').addEventListener('click', toggleMute);
+        }
+
+        // 更新倒计时
+        function updateCountdown() {
+            const now = new Date();
+            const diff = CONFIG.unlockTime - now;
+            
+            if (diff <= 0) {
+                document.getElementById('countdown').textContent = '已到时间！';
+                showMainPage('B');
+                return;
+            }
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('countdown').textContent = `${days}天 ${hours}时 ${minutes}分 ${seconds}秒`;
+        }
+
+        // 音乐控制
+        function togglePlay() {
+            if (!audio) {
+                audio = new Audio(currentMusicUrl);
+                audio.loop = true;
+            }
+            
+            if (isPlaying) {
+                audio.pause();
+                document.getElementById('play-btn').textContent = '▶';
+            } else {
+                audio.play().catch(e => {
+                    console.log('自动播放被阻止，需要用户交互');
+                });
+                document.getElementById('play-btn').textContent = '⏸';
+            }
+            isPlaying = !isPlaying;
+        }
+
+        function toggleMute() {
+            if (audio) {
+                audio.muted = !isMuted;
+                document.getElementById('mute-btn').textContent = isMuted ? '🔊' : '🔇';
+                isMuted = !isMuted;
+            }
+        }
+
+        // 初始化花瓣
+        function initPetals() {
+            petalsCanvas = document.getElementById('petals-canvas');
+            ctxPetals = petalsCanvas.getContext('2d');
+            
+            // 调整画布大小
+            function resizePetals() {
+                petalsCanvas.width = window.innerWidth;
+                petalsCanvas.height = window.innerHeight;
+            }
+            
+            resizePetals();
+            window.addEventListener('resize', resizePetals);
+            
+            // 创建花瓣
+            for (let i = 0; i < 25; i++) {
+                petals.push({
+                    x: Math.random() * window.innerWidth,
+                    y: -50 - Math.random() * 200,
+                    size: 8 + Math.random() * 12,
+                    speed: 0.5 + Math.random() * 1,
+                    rotation: Math.random() * Math.PI * 2,
+                    rotationSpeed: (Math.random() - 0.5) * 0.05,
+                    sway: Math.random() * 2,
+                    swayOffset: Math.random() * Math.PI * 2
+                });
+            }
+        }
+
+        // 初始化光影
+        function initLights() {
+            lightsCanvas = document.getElementById('lights-canvas');
+            ctxLights = lightsCanvas.getContext('2d');
+            
+            // 调整画布大小
+            function resizeLights() {
+                lightsCanvas.width = window.innerWidth;
+                lightsCanvas.height = window.innerHeight;
+            }
+            
+            resizeLights();
+            window.addEventListener('resize', resizeLights);
+            
+            // 创建光影
+            for (let i = 0; i < 15; i++) {
+                lights.push({
+                    x: Math.random() * window.innerWidth,
+                    y: Math.random() * window.innerHeight,
+                    size: 50 + Math.random() * 150,
+                    opacity: 0.05 + Math.random() * 0.15,
+                    speed: 0.2 + Math.random() * 0.5,
+                    phase: Math.random() * Math.PI * 2
+                });
+            }
+        }
+
+        // 动画
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // 绘制主页面光影
+            if (ctxLights) {
+                ctxLights.clearRect(0, 0, lightsCanvas.width, lightsCanvas.height);
+                
+                lights.forEach(light => {
+                    light.y -= light.speed;
+                    if (light.y < -light.size) {
+                        light.y = lightsCanvas.height + light.size;
+                        light.x = Math.random() * lightsCanvas.width;
+                    }
+                    
+                    const pulse = 0.5 + 0.5 * Math.sin(Date.now() * 0.001 + light.phase);
+                    const currentOpacity = light.opacity * pulse;
+                    
+                    const gradient = ctxLights.createRadialGradient(
+                        light.x, light.y, 0,
+                        light.x, light.y, light.size
+                    );
+                    gradient.addColorStop(0, `rgba(0, 212, 255, ${currentOpacity})`);
+                    gradient.addColorStop(0.5, `rgba(0, 184, 212, ${currentOpacity * 0.5})`);
+                    gradient.addColorStop(1, `rgba(138, 43, 226, 0)`);
+                    
+                    ctxLights.fillStyle = gradient;
+                    ctxLights.beginPath();
+                    ctxLights.arc(light.x, light.y, light.size, 0, Math.PI * 2);
+                    ctxLights.fill();
+                });
+            }
+            
+            // 绘制主页面花瓣
+            if (ctxPetals) {
+                ctxPetals.clearRect(0, 0, petalsCanvas.width, petalsCanvas.height);
+                
+                petals.forEach(petal => {
+                    petal.y += petal.speed;
+                    petal.x += Math.sin(Date.now() * 0.001 + petal.swayOffset) * petal.sway;
+                    petal.rotation += petal.rotationSpeed;
+                    
+                    if (petal.y > petalsCanvas.height + 50) {
+                        petal.y = -50;
+                        petal.x = Math.random() * petalsCanvas.width;
+                    }
+                    
+                    ctxPetals.save();
+                    ctxPetals.translate(petal.x, petal.y);
+                    ctxPetals.rotate(petal.rotation);
+                    
+                    // 绘制花瓣
+                    ctxPetals.fillStyle = `rgba(255, 255, 255, ${0.7 + 0.2 * Math.sin(Date.now() * 0.001)})`;
+                    ctxPetals.beginPath();
+                    ctxPetals.moveTo(0, -petal.size / 2);
+                    ctxPetals.bezierCurveTo(
+                        petal.size * 0.8 / 2, -petal.size * 0.5 / 2,
+                        petal.size * 0.8 / 2, petal.size * 0.3 / 2,
+                        0, petal.size / 2
+                    );
+                    ctxPetals.bezierCurveTo(
+                        -petal.size * 0.8 / 2, petal.size * 0.3 / 2,
+                        -petal.size * 0.8 / 2, -petal.size * 0.5 / 2,
+                        0, -petal.size / 2
+                    );
+                    ctxPetals.fill();
+                    
+                    ctxPetals.restore();
+                });
+            }
+            
+            // 绘制密码页面的效果
+            drawPasswordPage();
+            
+            // 绘制泡泡和爱心
+            drawBubblesAndHearts();
+        }
+
+        // 初始化密码页面花瓣
+        function initPetalsPwd() {
+            petalsCanvasPwd = document.getElementById('petals-canvas-pwd');
+            ctxPetalsPwd = petalsCanvasPwd.getContext('2d');
+            
+            // 调整画布大小
+            function resizePetalsPwd() {
+                petalsCanvasPwd.width = window.innerWidth;
+                petalsCanvasPwd.height = window.innerHeight;
+            }
+            
+            resizePetalsPwd();
+            window.addEventListener('resize', resizePetalsPwd);
+            
+            // 创建花瓣
+            for (let i = 0; i < 25; i++) {
+                petalsPwd.push({
+                    x: Math.random() * window.innerWidth,
+                    y: -50 - Math.random() * 200,
+                    size: 8 + Math.random() * 12,
+                    speed: 0.5 + Math.random() * 1,
+                    rotation: Math.random() * Math.PI * 2,
+                    rotationSpeed: (Math.random() - 0.5) * 0.05,
+                    sway: Math.random() * 2,
+                    swayOffset: Math.random() * Math.PI * 2
+                });
+            }
+        }
+
+        // 初始化密码页面光影
+        function initLightsPwd() {
+            lightsCanvasPwd = document.getElementById('lights-canvas-pwd');
+            ctxLightsPwd = lightsCanvasPwd.getContext('2d');
+            
+            // 调整画布大小
+            function resizeLightsPwd() {
+                lightsCanvasPwd.width = window.innerWidth;
+                lightsCanvasPwd.height = window.innerHeight;
+            }
+            
+            resizeLightsPwd();
+            window.addEventListener('resize', resizeLightsPwd);
+            
+            // 创建光影
+            for (let i = 0; i < 15; i++) {
+                lightsPwd.push({
+                    x: Math.random() * window.innerWidth,
+                    y: Math.random() * window.innerHeight,
+                    size: 50 + Math.random() * 150,
+                    opacity: 0.05 + Math.random() * 0.15,
+                    speed: 0.2 + Math.random() * 0.5,
+                    phase: Math.random() * Math.PI * 2
+                });
+            }
+        }
+
+        // 绘制密码页面的花瓣和光影
+        function drawPasswordPage() {
+            // 绘制光影
+            if (ctxLightsPwd) {
+                ctxLightsPwd.clearRect(0, 0, lightsCanvasPwd.width, lightsCanvasPwd.height);
+                
+                lightsPwd.forEach(light => {
+                    light.y -= light.speed;
+                    if (light.y < -light.size) {
+                        light.y = lightsCanvasPwd.height + light.size;
+                        light.x = Math.random() * lightsCanvasPwd.width;
+                    }
+                    
+                    const pulse = 0.5 + 0.5 * Math.sin(Date.now() * 0.001 + light.phase);
+                    const currentOpacity = light.opacity * pulse;
+                    
+                    const gradient = ctxLightsPwd.createRadialGradient(
+                        light.x, light.y, 0,
+                        light.x, light.y, light.size
+                    );
+                    gradient.addColorStop(0, `rgba(0, 212, 255, ${currentOpacity})`);
+                    gradient.addColorStop(0.5, `rgba(0, 184, 212, ${currentOpacity * 0.5})`);
+                    gradient.addColorStop(1, `rgba(138, 43, 226, 0)`);
+                    
+                    ctxLightsPwd.fillStyle = gradient;
+                    ctxLightsPwd.beginPath();
+                    ctxLightsPwd.arc(light.x, light.y, light.size, 0, Math.PI * 2);
+                    ctxLightsPwd.fill();
+                });
+            }
+            
+            // 绘制花瓣
+            if (ctxPetalsPwd) {
+                ctxPetalsPwd.clearRect(0, 0, petalsCanvasPwd.width, petalsCanvasPwd.height);
+                
+                petalsPwd.forEach(petal => {
+                    petal.y += petal.speed;
+                    petal.x += Math.sin(Date.now() * 0.001 + petal.swayOffset) * petal.sway;
+                    petal.rotation += petal.rotationSpeed;
+                    
+                    if (petal.y > petalsCanvasPwd.height + 50) {
+                        petal.y = -50;
+                        petal.x = Math.random() * petalsCanvasPwd.width;
+                    }
+                    
+                    ctxPetalsPwd.save();
+                    ctxPetalsPwd.translate(petal.x, petal.y);
+                    ctxPetalsPwd.rotate(petal.rotation);
+                    
+                    // 绘制花瓣
+                    ctxPetalsPwd.fillStyle = `rgba(255, 255, 255, ${0.7 + 0.2 * Math.sin(Date.now() * 0.001)})`;
+                    ctxPetalsPwd.beginPath();
+                    ctxPetalsPwd.moveTo(0, -petal.size / 2);
+                    ctxPetalsPwd.bezierCurveTo(
+                        petal.size * 0.8 / 2, -petal.size * 0.5 / 2,
+                        petal.size * 0.8 / 2, petal.size * 0.3 / 2,
+                        0, petal.size / 2
+                    );
+                    ctxPetalsPwd.bezierCurveTo(
+                        -petal.size * 0.8 / 2, petal.size * 0.3 / 2,
+                        -petal.size * 0.8 / 2, -petal.size * 0.5 / 2,
+                        0, -petal.size / 2
+                    );
+                    ctxPetalsPwd.fill();
+                    
+                    ctxPetalsPwd.restore();
+                });
+            }
+        }
+
+        // 初始化泡泡
+        function initBubbles() {
+            bubblesCanvas = document.getElementById('bubbles-canvas');
+            ctxBubbles = bubblesCanvas.getContext('2d');
+            
+            function resizeBubbles() {
+                bubblesCanvas.width = window.innerWidth;
+                bubblesCanvas.height = window.innerHeight;
+            }
+            
+            resizeBubbles();
+            window.addEventListener('resize', resizeBubbles);
+            
+            // 创建泡泡
+            for (let i = 0; i < 20; i++) {
+                bubbles.push({
+                    x: Math.random() * window.innerWidth,
+                    y: window.innerHeight + Math.random() * 200,
+                    size: 10 + Math.random() * 30,
+                    speed: 0.3 + Math.random() * 0.7,
+                    opacity: 0.2 + Math.random() * 0.3,
+                    wobble: Math.random() * 2,
+                    wobbleOffset: Math.random() * Math.PI * 2
+                });
+            }
+        }
+
+        // 初始化爱心
+        function initHearts() {
+            heartsCanvas = document.getElementById('hearts-canvas');
+            ctxHearts = heartsCanvas.getContext('2d');
+            
+            function resizeHearts() {
+                heartsCanvas.width = window.innerWidth;
+                heartsCanvas.height = window.innerHeight;
+            }
+            
+            resizeHearts();
+            window.addEventListener('resize', resizeHearts);
+            
+            // 创建爱心
+            for (let i = 0; i < 15; i++) {
+                hearts.push({
+                    x: Math.random() * window.innerWidth,
+                    y: window.innerHeight + Math.random() * 300,
+                    size: 15 + Math.random() * 25,
+                    speed: 0.4 + Math.random() * 0.8,
+                    opacity: 0.4 + Math.random() * 0.4,
+                    rotation: Math.random() * Math.PI * 2,
+                    rotationSpeed: (Math.random() - 0.5) * 0.02,
+                    sway: Math.random() * 1.5,
+                    swayOffset: Math.random() * Math.PI * 2
+                });
+            }
+        }
+
+        // 绘制泡泡和爱心
+        function drawBubblesAndHearts() {
+            // 绘制泡泡
+            if (ctxBubbles && currentPageType === 'A') {
+                ctxBubbles.clearRect(0, 0, bubblesCanvas.width, bubblesCanvas.height);
+                
+                bubbles.forEach(bubble => {
+                    bubble.y -= bubble.speed;
+                    bubble.x += Math.sin(Date.now() * 0.001 + bubble.wobbleOffset) * bubble.wobble * 0.5;
+                    
+                    if (bubble.y < -bubble.size * 2) {
+                        bubble.y = bubblesCanvas.height + bubble.size;
+                        bubble.x = Math.random() * bubblesCanvas.width;
+                    }
+                    
+                    // 绘制淡粉色泡泡
+                    const gradient = ctxBubbles.createRadialGradient(
+                        bubble.x - bubble.size * 0.3, bubble.y - bubble.size * 0.3, 0,
+                        bubble.x, bubble.y, bubble.size
+                    );
+                    gradient.addColorStop(0, `rgba(255, 220, 230, ${bubble.opacity})`);
+                    gradient.addColorStop(0.5, `rgba(255, 182, 193, ${bubble.opacity * 0.6})`);
+                    gradient.addColorStop(1, `rgba(255, 150, 170, ${bubble.opacity * 0.2})`);
+                    
+                    ctxBubbles.fillStyle = gradient;
+                    ctxBubbles.beginPath();
+                    ctxBubbles.arc(bubble.x, bubble.y, bubble.size, 0, Math.PI * 2);
+                    ctxBubbles.fill();
+                    
+                    // 高光
+                    ctxBubbles.fillStyle = `rgba(255, 255, 255, ${bubble.opacity * 0.5})`;
+                    ctxBubbles.beginPath();
+                    ctxBubbles.arc(bubble.x - bubble.size * 0.3, bubble.y - bubble.size * 0.3, bubble.size * 0.2, 0, Math.PI * 2);
+                    ctxBubbles.fill();
+                });
+            }
+            
+            // 绘制爱心
+            if (ctxHearts && currentPageType === 'A') {
+                ctxHearts.clearRect(0, 0, heartsCanvas.width, heartsCanvas.height);
+                
+                hearts.forEach(heart => {
+                    heart.y -= heart.speed;
+                    heart.x += Math.sin(Date.now() * 0.001 + heart.swayOffset) * heart.sway;
+                    heart.rotation += heart.rotationSpeed;
+                    
+                    if (heart.y < -heart.size * 2) {
+                        heart.y = heartsCanvas.height + heart.size;
+                        heart.x = Math.random() * heartsCanvas.width;
+                    }
+                    
+                    ctxHearts.save();
+                    ctxHearts.translate(heart.x, heart.y);
+                    ctxHearts.rotate(heart.rotation);
+                    
+                    // 绘制爱心
+                    ctxHearts.fillStyle = `rgba(255, 105, 140, ${heart.opacity})`;
+                    ctxHearts.beginPath();
+                    const size = heart.size;
+                    ctxHearts.moveTo(0, size * 0.3);
+                    ctxHearts.bezierCurveTo(-size * 0.5, -size * 0.3, -size, size * 0.1, 0, size);
+                    ctxHearts.bezierCurveTo(size, size * 0.1, size * 0.5, -size * 0.3, 0, size * 0.3);
+                    ctxHearts.fill();
+                    
+                    ctxHearts.restore();
+                });
+            }
+        }
+    </script>
+</body>
+</html>
